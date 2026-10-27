@@ -1,7 +1,7 @@
 // The manifest keys a Wabifi desktop loads, and the one place that says so.
 //
-// The set is block/buzz-app's Manifest (upstream crates/plugin-manager/src/lib.rs: description,
-// discovery, host.commands[].maxInputBytes, host.processes, host.mcp, host.files) plus Wabifi's own
+// The set is the desktop plugin manager's Manifest (description, discovery,
+// host.commands[].maxInputBytes, host.processes, host.mcp, host.files) plus Wabifi's own
 // dataSchema and needs. The desktop denies unknown keys, so a key missing here is a plugin that
 // builds and then cannot be installed.
 const TOP = ["id", "name", "apiVersion", "description", "discovery", "host", "dataSchema", "needs"];

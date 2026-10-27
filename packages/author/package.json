@@ -5,6 +5,6 @@
   "type": "module",
   "types": "./index.d.ts",
   "dependencies": {
-    "@buzz/author": "file:../../vendor/buzz-author-429ea040.tgz"
+    "@buzz/author": "file:../../vendor/author-types-429ea040.tgz"
   }
 }

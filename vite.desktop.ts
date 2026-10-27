@@ -25,11 +25,11 @@ export function desktopPlugin(desktopDir: string) {
     },
     plugins: [
       {
-        name: "buzz-api-v1",
+        name: "wabifi-api-v1",
         enforce: "pre",
         resolveId(source) {
-          if (/^react(?:-dom)?(?:\/|$)/.test(source) || source === "@buzz/author" || source.startsWith("@deepseek-ai/cordis")) {
-            throw new Error(`${source}: Buzz supplies host capabilities through ctx; use type-only imports`);
+          if (/^react(?:-dom)?(?:\/|$)/.test(source) || source === "@wabifi/author" || source.startsWith("@deepseek-ai/cordis")) {
+            throw new Error(`${source}: Wabifi supplies host capabilities through ctx; use type-only imports`);
           }
         },
         generateBundle(_options, bundle) {
@@ -40,7 +40,7 @@ export function desktopPlugin(desktopDir: string) {
           }
           if (!chunk.exports.includes("apply")) throw new Error("Export apply(ctx)");
           chunk.code = embedPluginLicenses(chunk.code, licenses);
-          // Buzz rejects unknown manifest fields, so distManifest leaves out this repo's own (version).
+          // The desktop rejects unknown manifest fields, so distManifest leaves out this repo's own (version).
           this.emitFile({ type: "asset", fileName: "manifest.json", source: `${JSON.stringify(shipped, null, 2)}\n` });
         },
       },

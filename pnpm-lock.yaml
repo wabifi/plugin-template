@@ -42,8 +42,8 @@ importers:
   packages/author:
     dependencies:
       '@buzz/author':
-        specifier: file:../../vendor/buzz-author-429ea040.tgz
-        version: file:vendor/buzz-author-429ea040.tgz(typescript@7.0.2)
+        specifier: file:../../vendor/author-types-429ea040.tgz
+        version: file:vendor/author-types-429ea040.tgz(typescript@7.0.2)
 
 packages:
 
@@ -59,8 +59,8 @@ packages:
     resolution: {integrity: sha512-0GEz8qJWokkUVYQYRukmkSHIFNoBH8QTreeHrAFbvz1XFYc3Y+puhMs8PQ5x8GNugiC2l5jvDBXKLbBIByeSBw==}
     hasBin: true
 
-  '@buzz/author@file:vendor/buzz-author-429ea040.tgz':
-    resolution: {integrity: sha512-UOl525J+lA/2/opW6bmw8OhH8aVSI//pYGNGb9XnSH1RItmCg0vCS2jTM9IKDyg1WtBRg6fauI1AhOVgy3q9pQ==, tarball: file:vendor/buzz-author-429ea040.tgz}
+  '@buzz/author@file:vendor/author-types-429ea040.tgz':
+    resolution: {integrity: sha512-UOl525J+lA/2/opW6bmw8OhH8aVSI//pYGNGb9XnSH1RItmCg0vCS2jTM9IKDyg1WtBRg6fauI1AhOVgy3q9pQ==, tarball: file:vendor/author-types-429ea040.tgz}
     version: 0.0.0-preview.1
 
   '@csstools/color-helpers@6.1.2':
@@ -820,7 +820,7 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
-  '@buzz/author@file:vendor/buzz-author-429ea040.tgz(typescript@7.0.2)':
+  '@buzz/author@file:vendor/author-types-429ea040.tgz(typescript@7.0.2)':
     dependencies:
       '@deepseek-ai/cordis': 4.0.2
       '@types/react': 19.2.18
