@@ -446,9 +446,9 @@ revision again.
 ### Finishing
 
 Write the real tagline, chips and description in `directory/<id>.json`, run `pnpm test`, and
-commit on `plugin/<name>`, `pnpm-lock.yaml` included: adding a plugin changes it, and the
-release workflow installs from it as it is. Then merge into `main` the way this repo takes
-changes. Releasing is a separate step ("Releasing").
+commit on `plugin/<name>`, with `pnpm-lock.yaml` whenever `pnpm install` changed it: the release
+workflow installs with `--frozen-lockfile`, from the lockfile as committed. Then merge into
+`main` the way this repo takes changes. Releasing is a separate step ("Releasing").
 
 ## Releasing
 
