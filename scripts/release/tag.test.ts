@@ -11,12 +11,12 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })));
 
-// A repo with one plugin, acme.standup-board, whose manifest has `version`.
-function workspace(version: unknown = "0.1.0") {
+// A repo with one plugin, acme.standup-board, whose manifest has `version` (none when null).
+function workspace(version: string | null = "0.1.0") {
   const root = mkdtempSync(join(tmpdir(), "release-tag-"));
   roots.push(root);
   mkdirSync(join(root, "plugins", "acme.standup-board"), { recursive: true });
-  const manifest = { id: "acme.standup-board", name: "Standup board", apiVersion: 1, version };
+  const manifest = { id: "acme.standup-board", name: "Standup board", apiVersion: 1, ...(version === null ? {} : { version }) };
   writeFileSync(join(root, "plugins", "acme.standup-board", "manifest.json"), JSON.stringify(manifest));
   return root;
 }
@@ -33,7 +33,7 @@ describe("releaseTag", () => {
   });
 
   it("fails when the manifest has no version", () => {
-    expect(() => releaseTag("acme.standup-board@0.1.0", workspace(undefined))).toThrow(
+    expect(() => releaseTag("acme.standup-board@0.1.0", workspace(null))).toThrow(
       "plugins/acme.standup-board/manifest.json has no version",
     );
   });
