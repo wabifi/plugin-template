@@ -6,6 +6,26 @@ const PREFIX = "/* wabifi-plugin-licenses:v1\n";
 const SUFFIX = "\n*/\n";
 const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
+// The licenses create-plugin can name in a listing, by how their standard text starts (as
+// on choosealicense.com).
+const LICENSE_TITLES = [
+  ["MIT License", "MIT"],
+  ["Apache License Version 2.0", "Apache-2.0"],
+  ["BSD 2-Clause License", "BSD-2-Clause"],
+  ["BSD 3-Clause License", "BSD-3-Clause"],
+  ["ISC License", "ISC"],
+  ["Mozilla Public License Version 2.0", "MPL-2.0"],
+  ["This is free and unencumbered software released into the public domain.", "Unlicense"],
+  ["BSD Zero Clause License", "0BSD"],
+];
+export const LICENSES = LICENSE_TITLES.map(([, id]) => id);
+
+// The SPDX id of a LICENSE text, or undefined when it starts like none of LICENSES.
+export function licenseId(text) {
+  const start = text.trim().replace(/\s+/g, " ");
+  return LICENSE_TITLES.find(([title]) => start.startsWith(title))?.[1];
+}
+
 export function noticesProblems(notices) {
   if (!Array.isArray(notices)) return ["notices must be an array containing LICENSE text"];
   const problems = [];

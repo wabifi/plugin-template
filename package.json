@@ -5,7 +5,8 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "build": "pnpm -r --filter './plugins/*/desktop' build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "create-plugin": "node scripts/create-plugin.mjs"
   },
   "devDependencies": {
     "@types/node": "24.19.1",
