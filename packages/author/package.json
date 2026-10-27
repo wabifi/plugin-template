@@ -1,0 +1,10 @@
+{
+  "name": "@wabifi/author",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@buzz/author": "file:../../vendor/author-types-429ea040.tgz"
+  }
+}
