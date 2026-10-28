@@ -71,8 +71,10 @@ build embeds these texts in a JSON comment at the top of `plugin.js`, so they tr
 code. Do not add licensing keys to `manifest.json`: Wabifi rejects unknown manifest fields.
 
 A new plugin copies the root `LICENSE`, and its listing names that license. The template ships
-MIT; to start new plugins under another license, replace the root `LICENSE` with the standard
-text of one of MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, Unlicense or 0BSD.
+MIT with Cloud Kinetix as the copyright holder, so put your own name in the root `LICENSE`
+before you create plugins. To start new plugins under another license, replace the root
+`LICENSE` with the standard text of one of MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC,
+MPL-2.0, Unlicense or 0BSD.
 `pnpm create-plugin` refuses a root `LICENSE` it can't tell apart. A plugin that already exists
 keeps its own `LICENSE` and listing until you change both.
 

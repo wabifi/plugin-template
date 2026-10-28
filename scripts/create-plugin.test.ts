@@ -96,6 +96,16 @@ describe("scaffoldPlugin", () => {
     expect(() => scaffoldPlugin("standup-board", workspace({ license: "All rights reserved.\n" }))).toThrow("Can't tell which license LICENSE is");
     expect(() => scaffoldPlugin("standup-board", workspace({ license: null }))).toThrow("There is no LICENSE at the root");
   });
+
+  it("starts new plugins under the template's own LICENSE: MIT, Cloud Kinetix, matching the package manifests", () => {
+    const root = workspace({ license: readFileSync(join(repo, "LICENSE"), "utf8") });
+    scaffoldPlugin("standup-board", root);
+    expect(json(join(root, "directory", "acme.standup-board.json")).license).toBe("MIT");
+    expect(readFileSync(join(root, "plugins", "acme.standup-board", "LICENSE"), "utf8")).toContain("Copyright (c) 2026 Cloud Kinetix\n");
+    for (const manifest of ["package.json", "packages/author/package.json"]) {
+      expect(json(join(repo, manifest)).license, manifest).toBe("MIT");
+    }
+  });
 });
 
 describe("pnpm create-plugin", () => {
