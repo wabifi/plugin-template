@@ -23,9 +23,9 @@ in this workspace starts with it, like `acme.standup-board`. A prefix is 2 to 31
 letters or digits, starting with a letter; single dashes may join them. Until you replace
 `your-prefix`, creating a plugin stops and says so.
 
-New plugins get a copy of the `LICENSE` file at the top: MIT, for "the authors of this
-repository". Put your name there, or replace it with another license's standard text
-(`docs/authoring.md` lists which).
+New plugins get a copy of the `LICENSE` file at the top: MIT, with Cloud Kinetix as the
+copyright holder. Put your own name there, or replace it with another license's standard
+text (`docs/authoring.md` lists which).
 
 ## Create a plugin
 
@@ -90,4 +90,5 @@ access a plugin needs.
 
 ## License
 
-MIT, in `LICENSE`. The type definitions in `vendor/` keep their own license and notices.
+MIT, copyright Cloud Kinetix, in `LICENSE`. The type definitions in `vendor/` keep their own
+license and notices.
