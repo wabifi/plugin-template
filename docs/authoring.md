@@ -59,8 +59,11 @@ with this workspace's prefix (`acme.standup-board`); one with another prefix is 
 
 `tsc -p .` runs before `vite build`, so a type error fails the build.
 
-`inject` must be a plain list of string literals. The app refuses a plugin that asks for more
-with `ctx.inject()` while it runs.
+`inject` must be a plain list of string literals, and the plugin may use only what it names.
+The catalog's automatic review rejects a plugin that uses a capability the list doesn't name, or
+reads `ctx[name]` with a name it works out while it runs. It also rejects one that asks for more
+while it runs: `ctx.inject()`, `ctx.plugin()`, `ctx.get()`, or any call to a method named
+`inject` anywhere in the bundle, libraries included. The app doesn't stop any of this yet.
 
 ## License and notices
 
