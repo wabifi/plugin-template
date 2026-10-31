@@ -473,10 +473,12 @@ write permissions. That workflow runs two jobs on GitHub-hosted runners.
 The build job has read access only, because it runs your plugin's code and every dependency's
 install script:
 
-1. `node scripts/release/tag.mjs <tag>` checks that the plugin exists and that its manifest
+1. It checks that a push of the tag started the run, then checks out the commit the tag
+   pointed to then, the one the attestation names, even if the tag has moved since.
+2. `node scripts/release/tag.mjs <tag>` checks that the plugin exists and that its manifest
    has that version. Run it yourself before tagging.
-2. `pnpm install --frozen-lockfile`, then the plugin's build.
-3. It hands `dist/<id>/plugin.js` and `dist/<id>/manifest.json` to the release job as a
+3. `pnpm install --frozen-lockfile`, then the plugin's build.
+4. It hands `dist/<id>/plugin.js` and `dist/<id>/manifest.json` to the release job as a
    workflow artifact kept for one day.
 
 The release job holds the write permissions and runs no code from your repo: no checkout, no
