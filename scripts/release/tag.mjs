@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { isMain } from "../is-main.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const TAG = /^([a-z][a-z0-9.-]*)@([0-9A-Za-z.+-]+)$/;
+export const TAG = /^([a-z][a-z0-9.-]*)@([0-9A-Za-z.+-]+)$/;
 
 export function releaseTag(tag, root = repo) {
   const [, id, version] = tag.match(TAG) ?? [];

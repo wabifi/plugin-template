@@ -72,10 +72,18 @@ git tag acme.standup-board@0.1.0
 git push origin acme.standup-board@0.1.0
 ```
 
-The release workflow checks the tag against the manifest, builds `plugin.js` on a
-GitHub-hosted runner, attests it to your commit, and attaches `plugin.js` and `manifest.json`
-to a GitHub Release named after the tag. The attestation needs a public repository. From
-Console you then submit the release to the catalog or share it with one community.
+The tag push runs `.github/workflows/release-on-tag.yml`, which calls plugin-template's release
+workflow on GitHub-hosted runners. Its build job checks the tag against the manifest and builds
+`plugin.js` with read access only, since the build runs your plugin's code and its
+dependencies' install scripts. Its release job, which runs none of that code, attests
+`plugin.js` to your commit and attaches `plugin.js` and `manifest.json` to a GitHub Release
+named after the tag. The attestation needs a public repository. From Console you then submit
+the release to the catalog or share it with one community.
+
+The catalog refuses a `plugin.js` attested by any workflow other than
+`wabifi/plugin-template/.github/workflows/release.yml`, so keep the `uses:` line in
+`release-on-tag.yml` as it is. The `release.yml` your repo got from the template runs only when
+called; a release through it signs as your repo, and the catalog refuses it.
 
 Plugins aren't sandboxed: they run with the member's account, on their Mac. Ask only for the
 access a plugin needs.
@@ -85,6 +93,8 @@ access a plugin needs.
 - `docs/authoring.md`: the plugin contract, the manifest and listing fields, pages for people
   who aren't developers, testing, releasing, and the path for coding agents.
 - `.claude/skills/wabifi-plugin-authoring/`: points coding agents at that guide.
+- `.github/workflows/`: `release-on-tag.yml`, which releases on a tag through plugin-template's
+  `release.yml`.
 - `scripts/`: `create-plugin`, `dev`, the release tag check, and their tests.
 - `vendor/`: the type definitions behind `@wabifi/author`, under their own license.
 
