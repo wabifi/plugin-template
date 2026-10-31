@@ -118,6 +118,10 @@ jobs:
         with:
           subject-path: release/plugin.js
 
+      # Wabifi Console reads a release's files from the webhook GitHub sends when the release is
+      # published, so a new release is published with both attached: given files, gh creates a
+      # draft, uploads them, then publishes it. An existing release gets them, then is published
+      # in case an earlier run left it a draft.
       - name: Attach plugin.js and manifest.json to the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -125,5 +129,9 @@ jobs:
           ID: ${{ needs.build.outputs.id }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --verify-tag --title "$ID $VERSION" --notes "$ID $VERSION"
-          gh release upload "$TAG" release/plugin.js release/manifest.json --clobber
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" release/plugin.js release/manifest.json --clobber
+            gh release edit "$TAG" --draft=false
+          else
+            gh release create "$TAG" release/plugin.js release/manifest.json --verify-tag --title "$ID $VERSION" --notes "$ID $VERSION"
+          fi
