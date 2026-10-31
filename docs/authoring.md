@@ -488,8 +488,12 @@ The release job holds the write permissions and runs no code from your repo: no 
    `tag.mjs`, and stops on anything else.
 2. It attests `plugin.js` to the tagged commit (GitHub build provenance). Anyone can check a
    download with `gh attestation verify plugin.js --repo <owner>/<repo>`.
-3. It attaches `plugin.js` and `manifest.json` to the GitHub Release named after the tag,
-   creating the release if it doesn't exist.
+3. It creates the GitHub Release named after the tag with `plugin.js` and `manifest.json`
+   attached, because Console reads a release's files when the release is published. If the
+   release already exists, it attaches both files and publishes it if it's a draft. Console
+   reads a release again whenever it's edited, so after attaching files to a release you
+   published by hand, edit the release once. A repo with immutable releases refuses new files
+   on a published release; release a new version instead.
 
 On GitHub Free, Pro and Team plans the attestation step needs a public repository.
 

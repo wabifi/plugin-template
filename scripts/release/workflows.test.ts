@@ -4,7 +4,7 @@
 // wabifi/plugin-template/.github/workflows/release.yml, which GitHub names as the signer only when
 // a repo calls that workflow, so release.yml is reusable and a small caller runs it on a tag.
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -165,6 +165,57 @@ describe("the build's check that the tag started the run", () => {
     ["refs/tags/acme.standup-board@0.1.0", "", 1],
   ])("given ref %j and tag %j, exits %i", (ref, tag, status) => {
     expect(pushed(ref, tag)).toBe(status);
+  });
+});
+
+describe("the release job's attach step", () => {
+  // Runs the step's script against a stub gh that logs each call, from an empty temp dir. Console
+  // reads a release's files from the webhook GitHub sends when it's published, so a new release
+  // must be published with both files already attached.
+  function attach(releaseExists: boolean) {
+    const script = writeJob().steps!.find((step) => (step as { name?: string }).name?.startsWith("Attach"))!.run!;
+    const dir = mkdtempSync(join(tmpdir(), "release-attach-"));
+    try {
+      const bin = join(dir, "bin");
+      const log = join(dir, "gh.log");
+      mkdirSync(bin);
+      writeFileSync(
+        join(bin, "gh"),
+        '#!/bin/bash\nprintf "%s\\n" "$*" >> "$GH_LOG"\nif [ "$1 $2" = "release view" ]; then exit "$VIEW_STATUS"; fi\n',
+        { mode: 0o755 },
+      );
+      const run = spawnSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", script], {
+        cwd: dir,
+        encoding: "utf8",
+        env: {
+          PATH: `${bin}:${process.env.PATH}`,
+          TAG: "acme.standup-board@0.1.0",
+          ID: "acme.standup-board",
+          VERSION: "0.1.0",
+          GH_LOG: log,
+          VIEW_STATUS: releaseExists ? "0" : "1",
+        },
+      });
+      expect(run.status, run.stderr).toBe(0);
+      return readFileSync(log, "utf8").trim().split("\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("creates a new release with plugin.js and manifest.json, so it's published with both", () => {
+    const [view, create, ...rest] = attach(false);
+    expect(view).toBe("release view acme.standup-board@0.1.0");
+    expect(create).toMatch(/^release create acme\.standup-board@0\.1\.0 release\/plugin\.js release\/manifest\.json --verify-tag /);
+    expect(rest).toEqual([]);
+  });
+
+  it("attaches both files to an existing release, then publishes it if a failed run left a draft", () => {
+    expect(attach(true)).toEqual([
+      "release view acme.standup-board@0.1.0",
+      "release upload acme.standup-board@0.1.0 release/plugin.js release/manifest.json --clobber",
+      "release edit acme.standup-board@0.1.0 --draft=false",
+    ]);
   });
 });
 
