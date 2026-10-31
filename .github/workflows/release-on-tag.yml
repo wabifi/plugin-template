@@ -1,0 +1,21 @@
+# Releases a plugin when a tag <id>@<version> is pushed, like acme.standup-board@0.1.0, by calling
+# plugin-template's release workflow (see release.yml for what it does).
+name: Release on tag
+
+on:
+  push:
+    tags: ["*@*"]
+
+permissions: {}
+
+jobs:
+  release:
+    # Keep this line pointing at wabifi/plugin-template. The Wabifi catalog accepts only a plugin.js
+    # attested by that workflow; one attested by a copy in this repo, or any other, is refused.
+    uses: wabifi/plugin-template/.github/workflows/release.yml@main
+    permissions:
+      contents: write # create the release and attach its files
+      id-token: write # sign the provenance attestation
+      attestations: write # store it
+    with:
+      tag: ${{ github.ref_name }}

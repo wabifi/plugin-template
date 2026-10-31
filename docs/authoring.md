@@ -465,16 +465,35 @@ git tag acme.my-tool@0.2.0
 git push origin acme.my-tool@0.2.0
 ```
 
-`.github/workflows/release.yml` runs on that tag, on a GitHub-hosted runner:
+The tag push runs `.github/workflows/release-on-tag.yml`. It holds one line of substance,
+`uses: wabifi/plugin-template/.github/workflows/release.yml@main`: it calls plugin-template's
+reusable release workflow with the tag, granting it `contents`, `id-token` and `attestations`
+write permissions. That workflow runs two jobs on GitHub-hosted runners.
+
+The build job has read access only, because it runs your plugin's code and every dependency's
+install script:
 
 1. `node scripts/release/tag.mjs <tag>` checks that the plugin exists and that its manifest
    has that version. Run it yourself before tagging.
 2. `pnpm install --frozen-lockfile`, then the plugin's build.
-3. It attests `dist/<id>/plugin.js` to the tagged commit (GitHub build provenance). Anyone can
-   check a download with `gh attestation verify plugin.js --repo <owner>/<repo>`.
-4. It attaches `plugin.js` and `manifest.json` to the GitHub Release named after the tag,
+3. It hands `dist/<id>/plugin.js` and `dist/<id>/manifest.json` to the release job as a
+   workflow artifact kept for one day.
+
+The release job holds the write permissions and runs no code from your repo: no checkout, no
+`pnpm`, no `node`.
+
+1. It checks the plugin id and version the build reports against the tag, with the rules of
+   `tag.mjs`, and stops on anything else.
+2. It attests `plugin.js` to the tagged commit (GitHub build provenance). Anyone can check a
+   download with `gh attestation verify plugin.js --repo <owner>/<repo>`.
+3. It attaches `plugin.js` and `manifest.json` to the GitHub Release named after the tag,
    creating the release if it doesn't exist.
 
-On GitHub Free, Pro and Team plans the attestation step needs a public repository. Another
-workflow can run the same release with `uses: <owner>/<repo>/.github/workflows/release.yml@<ref>`,
-the input `tag`, and `contents`, `id-token` and `attestations` write permissions.
+On GitHub Free, Pro and Team plans the attestation step needs a public repository.
+
+The catalog's review and its publish step accept only a `plugin.js` attested by
+`wabifi/plugin-template/.github/workflows/release.yml`; they refuse one attested by any other
+workflow. GitHub names that workflow as the signer only when your repo calls it, so keep the
+`uses:` line in `release-on-tag.yml` pointing at wabifi/plugin-template. The `release.yml` your
+repo got from the template runs only when called; calling it, or any copy, signs as
+`<owner>/<repo>/.github/workflows/release.yml`, and the catalog refuses that release.
