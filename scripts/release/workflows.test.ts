@@ -52,11 +52,12 @@ describe("release.yml", () => {
     expect(release.permissions).toEqual({});
   });
 
-  it("builds with read access only, from the tag, without keeping the checkout's token", () => {
+  it("builds with read access only, from the pushed commit, without keeping the checkout's token", () => {
     const build = release.jobs.build as Job;
     expect(build.permissions).toEqual({ contents: "read" });
+    // The commit GitHub attests as the source, even if the tag moves before the job starts.
     const checkout = build.steps!.find((step) => step.uses?.startsWith("actions/checkout@"))!;
-    expect(checkout.with).toMatchObject({ ref: "refs/tags/${{ inputs.tag }}", "persist-credentials": false });
+    expect(checkout.with).toMatchObject({ ref: "${{ github.sha }}", "persist-credentials": false });
     expect(build.steps!.some((step) => step.run && /pnpm install --frozen-lockfile/.test(step.run))).toBe(true);
     const upload = build.steps!.find((step) => step.uses?.startsWith("actions/upload-artifact@"))!;
     expect(String(upload.with!.path).trim().split("\n")).toEqual([
@@ -65,6 +66,13 @@ describe("release.yml", () => {
     ]);
     expect(Number(upload.with!["retention-days"])).toBeLessThanOrEqual(1);
     expect(Object.keys((build as any).outputs)).toEqual(["id", "version"]);
+  });
+
+  it("checks that a push of the tag started the run before anything else", () => {
+    const [first] = (release.jobs.build as Job).steps!;
+    expect(first.id).toBe("pushed");
+    expect(first.env).toEqual({ TAG: "${{ inputs.tag }}", REF: "${{ github.ref }}" });
+    expect(first.run).not.toContain("${{");
   });
 
   it("releases in a job that needs the build and holds the write permissions", () => {
@@ -129,6 +137,32 @@ describe("the release job's check of id and version", () => {
   it("fails an id and version that are not the tag's", () => {
     expect(check("acme.standup-board@0.1.0", "acme.standup-board", "0.2.0")).toBe(1);
     expect(check("acme.standup-board@0.1.0", "acme.retro", "0.1.0")).toBe(1);
+  });
+});
+
+describe("the build's check that the tag started the run", () => {
+  function pushed(ref: string, tag: string) {
+    const script = (release.jobs.build as Job).steps!.find((step) => step.id === "pushed")!.run!;
+    const cwd = mkdtempSync(join(tmpdir(), "release-pushed-"));
+    try {
+      return spawnSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", script], {
+        cwd,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH, TAG: tag, REF: ref },
+      }).status;
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
+  it.each([
+    ["refs/tags/acme.standup-board@0.1.0", "acme.standup-board@0.1.0", 0],
+    ["refs/tags/acme.standup-board@0.2.0", "acme.standup-board@0.1.0", 1],
+    ["refs/heads/main", "acme.standup-board@0.1.0", 1],
+    ["refs/heads/acme.standup-board@0.1.0", "acme.standup-board@0.1.0", 1],
+    ["refs/tags/acme.standup-board@0.1.0", "", 1],
+  ])("given ref %j and tag %j, exits %i", (ref, tag, status) => {
+    expect(pushed(ref, tag)).toBe(status);
   });
 });
 
