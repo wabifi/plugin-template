@@ -499,3 +499,6 @@ workflow. GitHub names that workflow as the signer only when your repo calls it,
 `uses:` line in `release-on-tag.yml` pointing at wabifi/plugin-template. The `release.yml` your
 repo got from the template runs only when called; calling it, or any copy, signs as
 `<owner>/<repo>/.github/workflows/release.yml`, and the catalog refuses that release.
+
+That call runs plugin-template's workflow as it is on its `main` branch, with write access to
+your repo's contents and releases, so a change Wabifi makes there applies from your next release.

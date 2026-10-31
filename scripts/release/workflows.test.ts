@@ -34,6 +34,8 @@ function writes(workflow: any, job: Job) {
 
 // A step runs code from the repo when it checks it out, runs a package manager or node, or runs
 // one of the repo's own files or actions.
+// It sees only this file's steps, not what an action runs inside; the release job's exact list of
+// actions covers that for the job that can write.
 const RUNS_CODE = /(^|[\s;&|(`])(pnpm|npm|npx|node|yarn|bun|deno|corepack)(\s|$)|(^|[\s"'])\.{0,2}\/?scripts\/|\.\/[\w.-]/m;
 const runsCode = (step: Step) =>
   Boolean(step.uses?.startsWith("actions/checkout@") || step.uses?.startsWith("./") || (step.run && RUNS_CODE.test(step.run)));
