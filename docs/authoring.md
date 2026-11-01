@@ -505,7 +505,9 @@ install script:
    category, if any, Wabifi can install. Run it yourself before tagging.
 3. `pnpm install --frozen-lockfile`, then the plugin's build.
 4. `node scripts/release/check-manifest.mjs dist/<id>/manifest.json` checks the built manifest
-   the same way, so a release Console would refuse is never created.
+   the same way, so a release Console would refuse is never created. A repo made from an older
+   copy of this template has no `check-manifest.mjs`; its release skips this step, and Console
+   checks the description when the release arrives.
 5. It hands `dist/<id>/plugin.js` and `dist/<id>/manifest.json` to the release job as a
    workflow artifact kept for one day.
 

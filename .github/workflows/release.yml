@@ -66,10 +66,17 @@ jobs:
         run: pnpm --filter "./plugins/$ID/desktop" build
 
       # Wabifi Console refuses a release without a description, so this fails before one exists.
+      # Plugin repos call this file at main, and one made from an older copy of this template has no
+      # check-manifest.mjs: its release goes on, and the Console checks the description.
       - name: Check the built manifest's description
         env:
           ID: ${{ steps.tag.outputs.id }}
-        run: node scripts/release/check-manifest.mjs "dist/$ID/manifest.json"
+        run: |
+          if [ -f scripts/release/check-manifest.mjs ]; then
+            node scripts/release/check-manifest.mjs "dist/$ID/manifest.json"
+          else
+            echo "::notice::This repo has no scripts/release/check-manifest.mjs, so the Wabifi Console checks the description when the release arrives."
+          fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
