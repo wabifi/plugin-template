@@ -39,8 +39,18 @@ what people read about the plugin first. Replace that file's placeholder tagline
 description with your own.
 
 `wabifi plugin new` runs this repo's `pnpm create-plugin` and records the plugin as made on
-this Mac, which is what lets Wabifi run your build unsigned. `pnpm create-plugin standup-board`
-on its own makes the same files without that record.
+this Mac, which is what lets Wabifi run your build unsigned. `pnpm create-plugin` on its own
+makes the same files without that record, and also takes the plugin's description and category:
+
+```bash
+pnpm create-plugin standup-board --description "Collects each person's standup notes in one board." --category productivity
+```
+
+The description is the sentence or two Plugins shows; Wabifi Console accepts a release only when
+`manifest.json` has one, so add `"description"` there before you release a plugin made without
+it. The category is the Plugins shelf it goes on, one of `productivity`, `communication`,
+`data-and-forecasts`, `project-management`, `finance`, `utilities` or `examples`; without one it
+shows under Other. `docs/authoring.md` lists both under "manifest.json".
 
 ## Run it in Wabifi
 
@@ -74,7 +84,7 @@ git push origin acme.standup-board@0.1.0
 
 The tag push runs `.github/workflows/release-on-tag.yml`, which calls plugin-template's release
 workflow on GitHub-hosted runners. Its build job checks the tag against the manifest and builds
-`plugin.js` with read access only, since the build runs your plugin's code and its
+`plugin.js` with read access only, then stops if the built manifest has no description, since the build runs your plugin's code and its
 dependencies' install scripts. Its release job, which runs none of that code, attests
 `plugin.js` to your commit and attaches `plugin.js` and `manifest.json` to a GitHub Release
 named after the tag. The attestation needs a public repository. From Console you then submit

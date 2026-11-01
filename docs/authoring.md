@@ -8,8 +8,9 @@ wabifi plugin new my-tool      # scaffolds plugins/acme.my-tool/ + directory/acm
 pnpm install && pnpm build && pnpm test
 ```
 
-Both are green out of the box. Then replace the scaffold's placeholder tagline, chips and
-description in `directory/acme.my-tool.json` and write the real thing.
+Both are green out of the box. Then add a `description` to `plugins/acme.my-tool/manifest.json`
+(Console accepts a release only with one), replace the scaffold's placeholder tagline, chips and
+description in `directory/acme.my-tool.json`, and write the real thing.
 
 ## Layout
 
@@ -17,7 +18,7 @@ description in `directory/acme.my-tool.json` and write the real thing.
 wabifi.workspace.json  # this workspace's prefix
 LICENSE                # the license new plugins copy
 plugins/acme.my-tool/
-  manifest.json        # the plugin's id, name, apiVersion, version
+  manifest.json        # the plugin's id, name, description, apiVersion, version, category
   LICENSE              # full license text; embedded in plugin.js
   NOTICE               # optional; NOTICE.md and THIRD-PARTY-NOTICES.txt are also embedded
   core/                # platform-free logic + its Vitest tests
@@ -45,6 +46,17 @@ them (`acme-labs`). Wabifi's own prefixes are reserved. The template ships `your
 
 `pnpm create-plugin standup-board` makes `acme.standup-board`. A full id works too when it starts
 with this workspace's prefix (`acme.standup-board`); one with another prefix is refused.
+
+It also takes the manifest's description and category, both optional:
+
+```bash
+pnpm create-plugin standup-board --description "Collects each person's standup notes in one board." --category productivity
+```
+
+Without `--description` the manifest has none and `create-plugin` says so: the plugin builds and
+installs on your Mac, but Wabifi Console refuses a release of it until `manifest.json` has one.
+An empty description, one over 280 bytes, or a category not in the list under "manifest.json"
+is refused before anything is written. `wabifi plugin new` passes only the name.
 
 ## The plugin contract (Wabifi desktop, API v1)
 
@@ -113,11 +125,23 @@ compare versions.
 | `name` | the display name. Keep it equal to `name` in `directory/<id>.json`. |
 | `apiVersion` | `1`. The only shape the Wabifi desktop loads from a folder. |
 | `version` | semver. Raise it before each release: the release tag is `<id>@<version>`. It stays in this repo; the build leaves it out of `dist/<id>/manifest.json`. |
-| `description` | optional, 1–280 bytes: what the plugin does, in one line. |
-| `discovery` | optional `{ "category": "finance", "tags": ["accounting"] }`: hints for where the plugin is shelved. `category` is a lowercase id; `tags` has at most 16. Unknown keys under `discovery` are ignored. |
+| `description` | 1–280 bytes of UTF-8: what the plugin does, in a sentence or two, as Plugins shows it. A plugin builds and installs without one, but Wabifi Console refuses a release whose manifest has none, and so does the release workflow. |
+| `discovery` | optional `{ "category": "finance", "tags": ["accounting"] }`: where Plugins shelves the plugin. `category` is one of the ids below; without one, or with an id Plugins doesn't list, the plugin shows under Other. A category that isn't a lowercase id can't be installed, and Console refuses its release. `tags` has at most 16. Unknown keys under `discovery` are ignored. |
 | `host` | optional block declaring what the plugin needs from the person's computer: `commands` (each `id`, `program`, `args`, optional `maxInputBytes`, `maxOutputBytes`), `networkOrigins`, `processes` (long-lived programs: `id`, `program`, `args`, `bundled`), `mcp` (serve MCP to the agents it runs) and `files` (read files and folders with the person's own access, without starting a program). Ask only for what the plugin uses. |
 | `dataSchema` | optional non-negative integer: the version of the data the plugin stores. The host records it beside the data as `schema.json` and in the install receipt; raise it when the shape changes. |
 | `needs` | optional list of what the plugin needs on the person's computer: `ai`, `agents` (the Wabifi Agents app), `web-search` and `pack:<id>`, each at most once. Wabifi checks and prepares them before the plugin runs, in the order listed, so a `pack:<id>` that Wabifi Agents runs comes after `ai` and `agents`; a value it does not know marks the plugin as needing a newer Wabifi. |
+
+The categories, by the shelf Plugins shows:
+
+| `category` | shelf |
+|---|---|
+| `productivity` | Productivity |
+| `communication` | Communication |
+| `data-and-forecasts` | Data & forecasts |
+| `project-management` | Project management |
+| `finance` | Finance |
+| `utilities` | Utilities |
+| `examples` | Examples |
 
 A Wabifi build older than a key refuses a manifest that has it. `pnpm build` stops on a key no
 Wabifi build loads and names it; the app checks the values (lengths, ids, origins) when the
@@ -450,7 +474,8 @@ revision again.
 
 ### Finishing
 
-Write the real tagline, chips and description in `directory/<id>.json`, run `pnpm test`, and
+Write the real tagline, chips and description in `directory/<id>.json`, and a description in
+`plugins/<id>/manifest.json` (Console refuses a release without one), run `pnpm test`, and
 commit on `plugin/<name>`, with `pnpm-lock.yaml` whenever `pnpm install` changed it: the release
 workflow installs with `--frozen-lockfile`, from the lockfile as committed. Then merge into
 `main` the way this repo takes changes. Releasing is a separate step ("Releasing").
@@ -475,10 +500,13 @@ install script:
 
 1. It checks that a push of the tag started the run, then checks out the commit the tag
    pointed to then, the one the attestation names, even if the tag has moved since.
-2. `node scripts/release/tag.mjs <tag>` checks that the plugin exists and that its manifest
-   has that version. Run it yourself before tagging.
+2. `node scripts/release/tag.mjs <tag>` checks that the plugin exists, that its manifest
+   has that version, and that Console would take it: a description of at most 280 bytes, and a
+   category, if any, Wabifi can install. Run it yourself before tagging.
 3. `pnpm install --frozen-lockfile`, then the plugin's build.
-4. It hands `dist/<id>/plugin.js` and `dist/<id>/manifest.json` to the release job as a
+4. `node scripts/release/check-manifest.mjs dist/<id>/manifest.json` checks the built manifest
+   the same way, so a release Console would refuse is never created.
+5. It hands `dist/<id>/plugin.js` and `dist/<id>/manifest.json` to the release job as a
    workflow artifact kept for one day.
 
 The release job holds the write permissions and runs no code from your repo: no checkout, no
