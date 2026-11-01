@@ -70,6 +70,17 @@ describe("release.yml", () => {
     expect(Object.keys((build as any).outputs)).toEqual(["id", "version"]);
   });
 
+  it("checks the built manifest's description before uploading it, so a release the Console would refuse never exists", () => {
+    const steps = (release.jobs.build as Job).steps!;
+    const built = steps.findIndex((step) => step.run?.includes("build") && step.run.includes("pnpm --filter"));
+    const check = steps.findIndex((step) => step.run === 'node scripts/release/check-manifest.mjs "dist/$ID/manifest.json"');
+    const upload = steps.findIndex((step) => step.uses?.startsWith("actions/upload-artifact@"));
+    expect(built).toBeGreaterThan(-1);
+    expect(check).toBeGreaterThan(built);
+    expect(upload).toBeGreaterThan(check);
+    expect(steps[check].env).toEqual({ ID: "${{ steps.tag.outputs.id }}" });
+  });
+
   it("checks that a push of the tag started the run before anything else", () => {
     const [first] = (release.jobs.build as Job).steps!;
     expect(first.id).toBe("pushed");

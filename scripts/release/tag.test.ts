@@ -67,7 +67,7 @@ describe("releaseTag and the manifest Wabifi installs", () => {
     ["a description that isn't text", 42],
   ])("fails %s, saying what to write", (_case, description) => {
     expect(() => releaseTag("acme.standup-board@0.1.0", workspace("0.1.0", { description }))).toThrow(
-      "acme.standup-board@0.1.0: plugins/acme.standup-board/manifest.json needs a description: a sentence or two on what the plugin does, shown in Plugins.",
+      "acme.standup-board@0.1.0: plugins/acme.standup-board/manifest.json has no description. The Wabifi Console needs a description in manifest.json before it accepts a release: a sentence or two on what the plugin does, which Plugins shows.",
     );
   });
 

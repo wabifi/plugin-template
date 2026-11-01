@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { main, scaffoldPlugin } from "./create-plugin.mjs";
+import { scaffoldPlugin } from "./create-plugin.mjs";
 import { PLACEHOLDER, RESERVED } from "./workspace.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,7 +26,8 @@ function workspace({ prefix = "acme" as string | null, license = MIT as string |
 const json = (path: string) => JSON.parse(readFileSync(path, "utf8"));
 
 const DESCRIPTION = "Collects each person's standup notes in one board for the team.";
-// scaffoldPlugin with a description, which every new plugin needs.
+const CONSOLE_NEEDS = "The Wabifi Console needs a description in manifest.json before it accepts a release";
+// scaffoldPlugin with a description, which a plugin needs before it's released.
 const scaffold = (arg: string, root: string, options: { description?: unknown; category?: unknown } = {}) =>
   scaffoldPlugin(arg, root, { description: DESCRIPTION, ...options });
 const nothingWritten = (root: string) => {
@@ -118,14 +119,19 @@ describe("scaffoldPlugin", () => {
 });
 
 describe("the description and category", () => {
+  it("writes no description without one, as wabifi plugin new and Plugin Studio make plugins", () => {
+    const root = workspace();
+    expect(scaffoldPlugin("standup-board", root).id).toBe("acme.standup-board");
+    expect(json(join(root, "plugins", "acme.standup-board", "manifest.json"))).toEqual({ id: "acme.standup-board", name: "Standup board", apiVersion: 1, version: "0.1.0" });
+  });
+
   it.each([
-    ["no description", undefined],
     ["an empty description", ""],
     ["a blank description", "  \n\t "],
     ["a description that isn't text", 42],
   ])("refuses %s before writing anything, saying what to write", (_case, description) => {
     const root = workspace();
-    expect(() => scaffoldPlugin("standup-board", root, { description })).toThrow(/Describe acme\.standup-board in a sentence or two/);
+    expect(() => scaffoldPlugin("standup-board", root, { description })).toThrow(/describe acme\.standup-board in a sentence or two, or leave --description out/);
     nothingWritten(root);
   });
 
@@ -186,7 +192,7 @@ describe("pnpm create-plugin", () => {
   it("says how to use it when given no name", () => {
     const result = cli(workspace());
     expect(result.status).toBe(1);
-    expect(result.stderr.trim()).toBe('usage: pnpm create-plugin <name> --description "What it does, in a sentence or two." [--category <category>]');
+    expect(result.stderr.trim()).toBe('usage: pnpm create-plugin <name> [--description "What it does, in a sentence or two."] [--category <category>]');
   });
 
   it("says what it made and what comes next", () => {
@@ -194,6 +200,7 @@ describe("pnpm create-plugin", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("Created plugins/acme.standup-board/ and directory/acme.standup-board.json.");
     expect(result.stdout).toContain("pnpm install && pnpm build && pnpm test");
+    expect(result.stdout).not.toContain(CONSOLE_NEEDS);
   });
 
   it("takes --description and --category", () => {
@@ -203,12 +210,20 @@ describe("pnpm create-plugin", () => {
     expect(json(join(root, "plugins", "acme.standup-board", "manifest.json"))).toMatchObject({ description: DESCRIPTION, discovery: { category: "project-management" } });
   });
 
-  it("refuses without a description when there's no terminal to ask in, saying how to pass one", () => {
+  it("makes the plugin without a description, saying in one line that the Console needs one to release it", () => {
     const root = workspace();
     const result = cli(root, "standup-board");
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout.split("\n").filter((line) => line.includes(CONSOLE_NEEDS))).toHaveLength(1);
+    expect(json(join(root, "plugins", "acme.standup-board", "manifest.json"))).not.toHaveProperty("description");
+  });
+
+  it("refuses an empty --description in plain words", () => {
+    const root = workspace();
+    const result = cli(root, "standup-board", "--description", "");
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Describe acme.standup-board in a sentence or two");
-    expect(result.stderr).toContain('--description "');
+    expect(result.stderr).toContain("describe acme.standup-board in a sentence or two");
     expect(result.stderr).not.toMatch(/^\s+at /m);
     nothingWritten(root);
   });
@@ -225,52 +240,5 @@ describe("pnpm create-plugin", () => {
     const result = cli(workspace(), "standup-board", "--description", DESCRIPTION, "--tagline", "x");
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("usage: pnpm create-plugin");
-  });
-});
-
-describe("main, in a terminal", () => {
-  // main as the CLI runs it, with the terminal's question answered by `answer` (null: no terminal).
-  async function run(root: string, args: string[], answer: string | null) {
-    const asked: string[] = [];
-    const out: string[] = [];
-    const err: string[] = [];
-    const code = await main(args, {
-      root,
-      ask: answer === null ? null : async (question: string) => (asked.push(question), answer),
-      log: (line: string) => out.push(line),
-      error: (line: string) => err.push(line),
-    });
-    return { code, asked, out: out.join("\n"), err: err.join("\n") };
-  }
-
-  it("asks for the description when none was passed, and writes the answer", async () => {
-    const root = workspace();
-    const result = await run(root, ["standup-board"], `${DESCRIPTION}\n`);
-    expect(result.code).toBe(0);
-    expect(result.asked).toHaveLength(1);
-    expect(result.asked[0]).toContain("acme.standup-board");
-    expect(json(join(root, "plugins", "acme.standup-board", "manifest.json")).description).toBe(DESCRIPTION);
-  });
-
-  it("refuses a blank answer and writes nothing", async () => {
-    const root = workspace();
-    const result = await run(root, ["standup-board"], "   ");
-    expect(result.code).toBe(1);
-    expect(result.err).toContain("Describe acme.standup-board in a sentence or two");
-    nothingWritten(root);
-  });
-
-  it("doesn't ask when --description is passed", async () => {
-    const root = workspace();
-    const result = await run(root, ["standup-board", "--description", DESCRIPTION], "ignored");
-    expect(result.code).toBe(0);
-    expect(result.asked).toEqual([]);
-  });
-
-  it("doesn't ask before refusing a bad name or category", async () => {
-    const root = workspace();
-    expect((await run(root, ["Standup"], DESCRIPTION)).asked).toEqual([]);
-    expect((await run(root, ["standup-board", "--category", "games"], DESCRIPTION)).asked).toEqual([]);
-    nothingWritten(root);
   });
 });
