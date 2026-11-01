@@ -1,14 +1,21 @@
 // Scaffolds plugins/<id>/: manifest.json, the LICENSE, a core/ module with its first test and
 // the desktop/ build, plus the plugin's listing in directory/<id>.json, so `pnpm build` and
 // `pnpm test` see the plugin at once. Ids start with the prefix in wabifi.workspace.json.
+// A description, which Plugins shows, is optional here (wabifi plugin new passes only the name) but
+// the Wabifi Console needs one before it accepts a release. A category puts the plugin on one of
+// Plugins' shelves; without one it shows under Other.
 //
-//   pnpm create-plugin standup-board         # -> plugins/acme.standup-board/
-//   pnpm create-plugin acme.standup-board    # a full id with this workspace's prefix works too
+//   pnpm create-plugin standup-board --description "Collects the team's standup notes in one board."
+//   pnpm create-plugin acme.standup-board                # a full id with this workspace's prefix works too
+//   pnpm create-plugin standup-board --category project-management
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { isMain } from "./is-main.mjs";
+import { categoryList, isCategory } from "./release/categories.mjs";
 import { LICENSES, licenseId } from "./release/licenses.mjs";
+import { CONSOLE_NEEDS_DESCRIPTION, DESCRIPTION_MAX_BYTES, hasDescription, utf8Bytes } from "./release/manifest.mjs";
 import { workspacePrefix } from "./workspace.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -48,8 +55,26 @@ const displayName = (name) => {
   return words[0].toUpperCase() + words.slice(1);
 };
 
-const manifest = (id, name) =>
-  `${JSON.stringify({ id, name, apiVersion: 1, version: "0.1.0" }, null, 2)}\n`;
+const USAGE = 'usage: pnpm create-plugin <name> [--description "What it does, in a sentence or two."] [--category <category>]';
+
+// The description, trimmed, when there is one: text of at most the 280 bytes the desktop installs.
+function checkedDescription(id, description) {
+  if (description === undefined) return undefined;
+  if (!hasDescription(description)) throw new Error(`The description is empty: describe ${id} in a sentence or two, or leave --description out.`);
+  const text = description.trim();
+  const bytes = utf8Bytes(text);
+  if (bytes > DESCRIPTION_MAX_BYTES) throw new Error(`The description is ${bytes} bytes; Wabifi takes at most ${DESCRIPTION_MAX_BYTES}. Shorten it to a sentence or two.`);
+  return text;
+}
+
+function checkCategory(category) {
+  if (category !== undefined && !isCategory(category)) {
+    throw new Error(`${JSON.stringify(category)} isn't a category. Use one of ${categoryList}, or leave it out.`);
+  }
+}
+
+const manifest = (id, name, description, category) =>
+  `${JSON.stringify({ id, name, description, apiVersion: 1, version: "0.1.0", discovery: category === undefined ? undefined : { category } }, null, 2)}\n`;
 
 const core = `// Platform-free logic, tested next to this file. The desktop page imports it, so what the
 // tests check is what ships. Anything that needs host.runCommand or browser.View is
@@ -136,7 +161,7 @@ const listingText = (id, name, publisher, license) =>
     2,
   )}\n`;
 
-export function scaffoldPlugin(arg, root = repo) {
+export function scaffoldPlugin(arg, root = repo, { description, category } = {}) {
   const prefix = workspacePrefix(root);
   const id = pluginId(arg, prefix);
   const license = rootLicense(root);
@@ -145,9 +170,11 @@ export function scaffoldPlugin(arg, root = repo) {
   if (existsSync(dir)) throw new Error(`plugins/${id}/ already exists`);
   const listing = join(root, "directory", `${id}.json`);
   if (existsSync(listing)) throw new Error(`directory/${id}.json already exists`);
+  description = checkedDescription(id, description);
+  checkCategory(category);
   mkdirSync(join(dir, "core"), { recursive: true });
   mkdirSync(join(dir, "desktop", "src"), { recursive: true });
-  writeFileSync(join(dir, "manifest.json"), manifest(id, name));
+  writeFileSync(join(dir, "manifest.json"), manifest(id, name, description, category));
   writeFileSync(join(dir, "LICENSE"), license.text);
   writeFileSync(join(dir, "core", "summary.ts"), core);
   writeFileSync(join(dir, "core", "summary.test.ts"), coreTest(id));
@@ -161,18 +188,26 @@ export function scaffoldPlugin(arg, root = repo) {
 }
 
 if (isMain(import.meta.url)) {
-  const arg = process.argv[2];
-  if (!arg) {
-    console.error("usage: pnpm create-plugin <name>");
+  let parsed;
+  try {
+    parsed = parseArgs({ allowPositionals: true, options: { description: { type: "string" }, category: { type: "string" } } });
+  } catch {
+    parsed = { positionals: [] };
+  }
+  const [arg, ...rest] = parsed.positionals;
+  if (!arg || rest.length) {
+    console.error(USAGE);
     process.exit(1);
   }
+  const { description, category } = parsed.values;
   try {
-    const { id } = scaffoldPlugin(arg);
+    const { id } = scaffoldPlugin(arg, repo, { description, category });
     console.log(`Created plugins/${id}/ and directory/${id}.json.
 Next:
   1. pnpm install && pnpm build && pnpm test   # all green out of the box
   2. Write the real tagline, chips and description in directory/${id}.json.
   3. docs/authoring.md has the plugin contract; README.md says how to release.`);
+    if (description === undefined) console.log(CONSOLE_NEEDS_DESCRIPTION);
   } catch (error) {
     console.error(error.message);
     process.exit(1);

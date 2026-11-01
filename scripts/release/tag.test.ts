@@ -11,12 +11,20 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })));
 
-// A repo with one plugin, acme.standup-board, whose manifest has `version` (none when null).
-function workspace(version: string | null = "0.1.0") {
+// A repo with one plugin, acme.standup-board, whose manifest has `version` (none when null), a
+// description, and `fields` over those.
+function workspace(version: string | null = "0.1.0", fields: Record<string, unknown> = {}) {
   const root = mkdtempSync(join(tmpdir(), "release-tag-"));
   roots.push(root);
   mkdirSync(join(root, "plugins", "acme.standup-board"), { recursive: true });
-  const manifest = { id: "acme.standup-board", name: "Standup board", apiVersion: 1, ...(version === null ? {} : { version }) };
+  const manifest = {
+    id: "acme.standup-board",
+    name: "Standup board",
+    description: "Collects each person's standup notes in one board for the team.",
+    apiVersion: 1,
+    ...(version === null ? {} : { version }),
+    ...fields,
+  };
   writeFileSync(join(root, "plugins", "acme.standup-board", "manifest.json"), JSON.stringify(manifest));
   return root;
 }
@@ -48,6 +56,37 @@ describe("releaseTag", () => {
       expect(() => releaseTag(tag, workspace())).toThrow("is not a release tag");
     },
   );
+});
+
+describe("releaseTag and the manifest Wabifi installs", () => {
+  // The Wabifi Developers Console refuses the same release (CLO-794), and the desktop wouldn't install it.
+  it.each([
+    ["no description", undefined],
+    ["an empty description", ""],
+    ["a blank description", "  \n "],
+    ["a description that isn't text", 42],
+  ])("fails %s, saying what to write", (_case, description) => {
+    expect(() => releaseTag("acme.standup-board@0.1.0", workspace("0.1.0", { description }))).toThrow(
+      "acme.standup-board@0.1.0: plugins/acme.standup-board/manifest.json has no description. The Wabifi Console needs a description in manifest.json before it accepts a release: a sentence or two on what the plugin does, which Plugins shows.",
+    );
+  });
+
+  it("fails a description over 280 bytes of UTF-8, and passes one of exactly 280", () => {
+    expect(() => releaseTag("acme.standup-board@0.1.0", workspace("0.1.0", { description: "é".repeat(141) }))).toThrow(
+      "plugins/acme.standup-board/manifest.json has a description of 282 bytes; Wabifi takes at most 280.",
+    );
+    expect(releaseTag("acme.standup-board@0.1.0", workspace("0.1.0", { description: `${"é".repeat(100)}${"a".repeat(80)}` })).id).toBe("acme.standup-board");
+  });
+
+  it.each([undefined, null, { tags: ["standup"] }, { category: "project-management" }, { category: "games" }])("passes the discovery %j", (discovery) => {
+    expect(releaseTag("acme.standup-board@0.1.0", workspace("0.1.0", { discovery })).id).toBe("acme.standup-board");
+  });
+
+  it.each(["Finance", "Data & forecasts", "", "finance_tools", 7])("fails the category %j, which Wabifi can't install", (category) => {
+    expect(() => releaseTag("acme.standup-board@0.1.0", workspace("0.1.0", { discovery: { category } }))).toThrow(
+      "can't be installed with that category. Use one of productivity, communication, data-and-forecasts, project-management, finance, utilities or examples, or leave it out.",
+    );
+  });
 });
 
 describe("node scripts/release/tag.mjs", () => {

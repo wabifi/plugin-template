@@ -1,12 +1,14 @@
 // Checks a release tag, <id>@<version> (acme.standup-board@0.1.0), before the release workflow
-// builds anything: the id must be a plugin in this repo and the version the one in its
-// manifest.json. In the workflow it hands id and version to the next steps.
+// builds anything: the id must be a plugin in this repo, the version the one in its manifest.json,
+// and the manifest one Wabifi installs and the Console takes: a description of at most 280 bytes,
+// and a category, if any, that is an id. In the workflow it hands id and version to the next steps.
 //
 //   node scripts/release/tag.mjs acme.standup-board@0.1.0
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isMain } from "../is-main.mjs";
+import { manifestRefusal } from "./manifest.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const TAG = /^([a-z][a-z0-9.-]*)@([0-9A-Za-z.+-]+)$/;
@@ -21,6 +23,8 @@ export function releaseTag(tag, root = repo) {
   if (manifest.version !== version) {
     throw new Error(`${tag}: plugins/${id}/manifest.json has version ${JSON.stringify(manifest.version)}, not ${version}. Set the version there, commit, then tag that commit.`);
   }
+  const refusal = manifestRefusal(manifest, `plugins/${id}/manifest.json`);
+  if (refusal) throw new Error(`${tag}: ${refusal}`);
   return { id, version };
 }
 

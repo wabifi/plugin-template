@@ -4,7 +4,7 @@
 // wabifi/plugin-template/.github/workflows/release.yml, which GitHub names as the signer only when
 // a repo calls that workflow, so release.yml is reusable and a small caller runs it on a tag.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,14 +12,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { TAG } from "./tag.mjs";
 
-const workflows = join(resolve(dirname(fileURLToPath(import.meta.url)), "../.."), ".github", "workflows");
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const workflows = join(repo, ".github", "workflows");
 const load = (file: string) => parse(readFileSync(join(workflows, file), "utf8"));
 const all = readdirSync(workflows).filter((file) => /\.ya?ml$/.test(file)).map((file) => [file, load(file)] as const);
 
 const release = load("release.yml");
 const CALLER = "release-on-tag.yml";
 
-type Step = { uses?: string; run?: string; id?: string; with?: Record<string, unknown>; env?: Record<string, unknown> };
+type Step = { name?: string; uses?: string; run?: string; id?: string; with?: Record<string, unknown>; env?: Record<string, unknown> };
 type Job = { permissions?: unknown; steps?: Step[]; uses?: string; needs?: unknown; with?: Record<string, unknown> };
 
 const jobs = (workflow: any): [string, Job][] => Object.entries(workflow.jobs ?? {});
@@ -68,6 +69,17 @@ describe("release.yml", () => {
     ]);
     expect(Number(upload.with!["retention-days"])).toBeLessThanOrEqual(1);
     expect(Object.keys((build as any).outputs)).toEqual(["id", "version"]);
+  });
+
+  it("checks the built manifest's description before uploading it, so a release the Console would refuse never exists", () => {
+    const steps = (release.jobs.build as Job).steps!;
+    const built = steps.findIndex((step) => step.run?.includes("build") && step.run.includes("pnpm --filter"));
+    const check = steps.findIndex((step) => step.name === MANIFEST_CHECK);
+    const upload = steps.findIndex((step) => step.uses?.startsWith("actions/upload-artifact@"));
+    expect(built).toBeGreaterThan(-1);
+    expect(check).toBeGreaterThan(built);
+    expect(upload).toBeGreaterThan(check);
+    expect(steps[check].env).toEqual({ ID: "${{ steps.tag.outputs.id }}" });
   });
 
   it("checks that a push of the tag started the run before anything else", () => {
@@ -139,6 +151,48 @@ describe("the release job's check of id and version", () => {
   it("fails an id and version that are not the tag's", () => {
     expect(check("acme.standup-board@0.1.0", "acme.standup-board", "0.2.0")).toBe(1);
     expect(check("acme.standup-board@0.1.0", "acme.retro", "0.1.0")).toBe(1);
+  });
+});
+
+const MANIFEST_CHECK = "Check the built manifest's description";
+
+describe("the build's check of the built manifest", () => {
+  const dirs: string[] = [];
+  afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
+
+  // Runs the step's script as the runner would (bash -e) in a plugin repo's checkout: dist/acme.x/
+  // holds the built manifest, and scripts/ is this template's when `scripts` is true.
+  function checkBuilt(manifest: Record<string, unknown>, { scripts }: { scripts: boolean }) {
+    const script = (release.jobs.build as Job).steps!.find((step) => step.name === MANIFEST_CHECK)!.run!;
+    const cwd = mkdtempSync(join(tmpdir(), "release-manifest-"));
+    dirs.push(cwd);
+    mkdirSync(join(cwd, "dist", "acme.x"), { recursive: true });
+    writeFileSync(join(cwd, "dist", "acme.x", "manifest.json"), JSON.stringify(manifest));
+    if (scripts) cpSync(join(repo, "scripts"), join(cwd, "scripts"), { recursive: true });
+    return spawnSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", script], {
+      cwd,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, ID: "acme.x" },
+    });
+  }
+
+  const described = { id: "acme.x", name: "X", apiVersion: 1, description: "Counts things." };
+
+  it("passes a manifest with a description and fails one without", () => {
+    expect(checkBuilt(described, { scripts: true }).status).toBe(0);
+    const { description: _, ...bare } = described;
+    const run = checkBuilt(bare, { scripts: true });
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("no description");
+  });
+
+  // Plugin repos call release.yml at main, and one made from an older copy of this template has no
+  // check-manifest.mjs. Its release must still run: the Wabifi Console checks the description.
+  it("still releases from a plugin repo whose scripts predate check-manifest.mjs", () => {
+    const run = checkBuilt(described, { scripts: false });
+    expect(run.status, run.stderr).toBe(0);
+    const { description: _, ...bare } = described;
+    expect(checkBuilt(bare, { scripts: false }).status).toBe(0);
   });
 });
 
