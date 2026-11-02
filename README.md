@@ -98,6 +98,12 @@ called; a release through it signs as your repo, and the catalog refuses it.
 Plugins aren't sandboxed: they run with the member's account, on their Mac. Ask only for the
 access a plugin needs.
 
+## Keep vite current
+
+Your repo keeps its own copy of vite, so a newer one in this template doesn't reach it. If your
+`package.json` pins a vite older than 8.3.5, run `pnpm add -w -D -E vite@8.3.5` and commit
+`package.json` and `pnpm-lock.yaml`.
+
 ## What's here
 
 - `docs/authoring.md`: the plugin contract, the manifest and listing fields, pages for people
