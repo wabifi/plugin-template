@@ -4,7 +4,7 @@
 // wabifi/plugin-template/.github/workflows/release.yml, which GitHub names as the signer only when
 // a repo calls that workflow, so release.yml is reusable and a small caller runs it on a tag.
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -283,6 +283,82 @@ describe(CALLER, () => {
     expect(job.uses).toMatch(/^wabifi\/plugin-template\/\.github\/workflows\/release\.yml@[\w.-]+$/);
     expect(job.permissions).toEqual({ contents: "write", "id-token": "write", attestations: "write" });
     expect(job.with).toEqual({ tag: "${{ github.ref_name }}" });
+  });
+});
+
+// check.yml runs on pull requests and pushes, in this repo and in every repo made from it. The
+// automatic review looks up the lockfile's packages with OSV-Scanner and notes any known advisory,
+// so the check runs the same lookup and fails where the review would note one.
+const CHECK = "check.yml";
+
+describe(CHECK, () => {
+  const check = load(CHECK);
+  const steps = (job: string) => (check.jobs[job] as Job).steps!;
+
+  it("runs on every pull request and every push to main, with read access only", () => {
+    expect(check.on).toEqual({ pull_request: null, push: { branches: ["main"] } });
+    expect(check.permissions).toEqual({});
+    for (const [name, job] of jobs(check)) expect(job.permissions, name).toEqual({ contents: "read" });
+  });
+
+  it("installs from the lockfile and builds every plugin", () => {
+    expect(steps("build").flatMap((step) => (step.run ? [step.run] : []))).toEqual(["pnpm install --frozen-lockfile", "pnpm build"]);
+  });
+
+  it("downloads one OSV-Scanner release, pinned by its digest", () => {
+    const [{ env }] = steps("dependencies").filter((step) => step.run);
+    expect(env!.URL).toMatch(/^https:\/\/github\.com\/google\/osv-scanner\/releases\/download\/v\d+\.\d+\.\d+\/osv-scanner_linux_amd64$/);
+    expect(env!.SHA256).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  // Runs the lookup step's script as the runner would (bash -e), from an empty temp dir, with stub
+  // curl and sha256sum. The stub curl's download is a stub scanner that logs its arguments.
+  function lookup({ scan, sum }: { scan: number; sum: number }) {
+    const step = steps("dependencies").find((step) => step.run)!;
+    const dir = mkdtempSync(join(tmpdir(), "check-lookup-"));
+    try {
+      const bin = join(dir, "bin");
+      const log = join(dir, "scanner.log");
+      mkdirSync(bin);
+      writeFileSync(join(dir, "stub-scanner"), '#!/bin/bash\nprintf "%s\\n" "$@" > "$SCAN_LOG"\nexit "$SCAN_STATUS"\n');
+      writeFileSync(join(bin, "curl"), '#!/bin/bash\nwhile [ $# -gt 0 ]; do if [ "$1" = -o ]; then cp "$STUB_SCANNER" "$2"; fi; shift; done\n', { mode: 0o755 });
+      writeFileSync(join(bin, "sha256sum"), '#!/bin/bash\ncat > /dev/null\nexit "$SUM_STATUS"\n', { mode: 0o755 });
+      const run = spawnSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step.run!], {
+        cwd: dir,
+        encoding: "utf8",
+        env: {
+          ...(step.env as Record<string, string>),
+          PATH: `${bin}:${process.env.PATH}`,
+          RUNNER_TEMP: dir,
+          STUB_SCANNER: join(dir, "stub-scanner"),
+          SCAN_LOG: log,
+          SCAN_STATUS: String(scan),
+          SUM_STATUS: String(sum),
+        },
+      });
+      const args = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : null;
+      const config = existsSync(join(dir, "osv-scanner.toml")) ? readFileSync(join(dir, "osv-scanner.toml"), "utf8") : null;
+      return { status: run.status, args, config, dir };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("scans pnpm-lock.yaml with a config that ignores nothing, and passes when no package has an advisory", () => {
+    const { status, args, config, dir } = lookup({ scan: 0, sum: 0 });
+    expect(status).toBe(0);
+    expect(args).toEqual(["scan", "source", "--config", join(dir, "osv-scanner.toml"), "--lockfile", "pnpm-lock.yaml"]);
+    expect(config).toBe("");
+  });
+
+  it("fails when a package has a known advisory", () => {
+    expect(lookup({ scan: 1, sum: 0 }).status).toBe(1);
+  });
+
+  it("runs no scanner whose digest is not the pinned one", () => {
+    const { status, args } = lookup({ scan: 0, sum: 1 });
+    expect(status).not.toBe(0);
+    expect(args).toBeNull();
   });
 });
 

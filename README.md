@@ -104,7 +104,8 @@ access a plugin needs.
   who aren't developers, testing, releasing, and the path for coding agents.
 - `.claude/skills/wabifi-plugin-authoring/`: points coding agents at that guide.
 - `.github/workflows/`: `release-on-tag.yml`, which releases on a tag through plugin-template's
-  `release.yml`.
+  `release.yml`, and `check.yml`, which builds every pull request and push to main and fails
+  when a package in `pnpm-lock.yaml` has a known advisory, as the plugin review would note it.
 - `scripts/`: `create-plugin`, `dev`, the release tag check, and their tests.
 - `vendor/`: the type definitions behind `@wabifi/author`, under their own license.
 
