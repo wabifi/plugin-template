@@ -98,13 +98,20 @@ called; a release through it signs as your repo, and the catalog refuses it.
 Plugins aren't sandboxed: they run with the member's account, on their Mac. Ask only for the
 access a plugin needs.
 
+## Keep vite current
+
+Your repo keeps its own copy of vite, so a newer one in this template doesn't reach it. If your
+`package.json` pins a vite older than 8.3.5, run `pnpm add -w -D -E vite@8.3.5` and commit
+`package.json` and `pnpm-lock.yaml`.
+
 ## What's here
 
 - `docs/authoring.md`: the plugin contract, the manifest and listing fields, pages for people
   who aren't developers, testing, releasing, and the path for coding agents.
 - `.claude/skills/wabifi-plugin-authoring/`: points coding agents at that guide.
 - `.github/workflows/`: `release-on-tag.yml`, which releases on a tag through plugin-template's
-  `release.yml`.
+  `release.yml`, and `check.yml`, which builds every pull request and push to main and fails
+  when a package in `pnpm-lock.yaml` has a known advisory, as the plugin review would note it.
 - `scripts/`: `create-plugin`, `dev`, the release tag check, and their tests.
 - `vendor/`: the type definitions behind `@wabifi/author`, under their own license.
 
